@@ -69,6 +69,17 @@ def add_application(company: str, role: str, status: str = "applied",
     return row_id
 
 
+def find_application(company: str, role: str) -> dict | None:
+    """Return the first matching application (case-insensitive) or None."""
+    conn = get_conn()
+    row = conn.execute(
+        "SELECT * FROM applications WHERE LOWER(company) = LOWER(?) AND LOWER(role) = LOWER(?)",
+        (company, role),
+    ).fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+
 def update_application(app_id: int, **kwargs) -> bool:
     allowed = {"company", "role", "status", "url", "notes", "date_applied", "deadline"}
     updates = {k: v for k, v in kwargs.items() if k in allowed}

@@ -1,6 +1,6 @@
 from langchain_core.tools import tool
 from agent.database import (
-    add_application, update_application, list_applications,
+    add_application, find_application, update_application, list_applications,
     add_task, complete_task, list_tasks
 )
 
@@ -16,6 +16,12 @@ def track_application(company: str, role: str, status: str = "applied",
     Status options: wishlist, applied, screening, interview, offer, rejected.
     Date format: YYYY-MM-DD.
     """
+    existing = find_application(company, role)
+    if existing:
+        return (
+            f"Application already exists — #{existing['id']}: {existing['role']} at {existing['company']} "
+            f"(status: {existing['status']}). Use update_application_status to modify it."
+        )
     app_id = add_application(company, role, status, url, notes, date_applied, deadline)
     return f"Added application #{app_id}: {role} at {company} (status: {status})"
 
