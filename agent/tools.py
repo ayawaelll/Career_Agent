@@ -110,6 +110,7 @@ def get_tools():
         mark_task_done,
         add_to_google_calendar,
         schedule_interview_on_calendar,
+        tailor_resume_to_jd,
     ]
 
 
@@ -144,3 +145,20 @@ def schedule_interview_on_calendar(company: str, role: str, date: str,
         return f"Scheduled on Google Calendar: {title} on {date} at {time}. Link: {event.get('htmlLink', 'created')}"
     except Exception as e:
         return f"Could not schedule interview: {e}"
+
+
+@tool
+def tailor_resume_to_jd(job_description: str) -> str:
+    """
+    Tailor resume bullet points to a specific job description using RAG.
+    Retrieves the most relevant sections from the ingested master resume and
+    rewrites them to match the JD's required skills and keywords.
+    The user must upload their master resume PDF in the Resume tab first.
+    """
+    from agent.resume_rag import resume_is_ingested, run_tailoring_pipeline
+    if not resume_is_ingested():
+        return (
+            "No resume found in the vector store. "
+            "Please upload your master resume PDF in the Resume tab first."
+        )
+    return run_tailoring_pipeline(job_description)

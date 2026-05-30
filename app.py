@@ -70,8 +70,8 @@ with st.sidebar:
 
 
 # ── Tabs ──────────────────────────────────────────────────────────────────────
-tab_chat, tab_kanban, tab_calendar, tab_tasks = st.tabs([
-    "💬 Chat", "📋 Applications", "📅 Calendar", "✅ Tasks"
+tab_chat, tab_kanban, tab_calendar, tab_tasks, tab_resume = st.tabs([
+    "💬 Chat", "📋 Applications", "📅 Calendar", "✅ Tasks", "📄 Resume"
 ])
 
 
@@ -348,3 +348,78 @@ with tab_tasks:
                 st.rerun()
             else:
                 st.warning("Title is required.")
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# TAB 5 — RESUME TAILORING
+# ══════════════════════════════════════════════════════════════════════════════
+with tab_resume:
+    st.markdown("### Resume tailoring")
+    st.caption("Upload your master resume once, then paste any job description to get tailored bullets.")
+
+    # ── Step 1: ingest master resume ─────────────────────────────────────────
+    st.markdown("#### Step 1 — Upload master resume")
+    try:
+        from agent.resume_rag import resume_is_ingested, ingest_resume
+        already_ingested = resume_is_ingested()
+    except Exception:
+        already_ingested = False
+
+    if already_ingested:
+        st.success("Master resume is loaded. Upload a new file to replace it.")
+
+    uploaded_pdf = st.file_uploader(
+        "Master resume (PDF)",
+        type="pdf",
+        help="Upload once. Re-upload any time to update.",
+        key="resume_upload",
+    )
+    if uploaded_pdf is not None:
+        if st.button("Ingest resume", type="primary", key="ingest_btn"):
+            import tempfile, os
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(uploaded_pdf.read())
+                tmp_path = tmp.name
+            try:
+                with st.spinner("Reading and embedding resume..."):
+                    n = ingest_resume(tmp_path)
+                st.success(f"Ingested {n} sections from your resume.")
+            except Exception as e:
+                st.error(f"Ingestion failed: {e}")
+            finally:
+                os.unlink(tmp_path)
+
+    st.divider()
+
+    # ── Step 2: tailor to a JD ───────────────────────────────────────────────
+    st.markdown("#### Step 2 — Paste job description")
+    jd_input = st.text_area(
+        "Job description",
+        height=220,
+        placeholder="Paste the full job description here...",
+        key="jd_input",
+    )
+    if st.button("Generate tailored bullets", type="primary", key="tailor_btn"):
+        if not jd_input.strip():
+            st.warning("Paste a job description first.")
+        elif not resume_is_ingested():
+            st.warning("Upload and ingest your resume first (Step 1).")
+        else:
+            with st.spinner("Retrieving relevant experience and rewriting bullets..."):
+                try:
+                    from agent.resume_rag import run_tailoring_pipeline
+                    result = run_tailoring_pipeline(jd_input)
+                    st.session_state["tailored_output"] = result
+                except Exception as e:
+                    st.error(f"Tailoring failed: {e}")
+
+    if "tailored_output" in st.session_state:
+        st.divider()
+        st.markdown("#### Tailored bullets")
+        st.markdown(st.session_state["tailored_output"])
+        st.download_button(
+            label="Copy as .txt",
+            data=st.session_state["tailored_output"],
+            file_name="tailored_bullets.txt",
+            mime="text/plain",
+        )
